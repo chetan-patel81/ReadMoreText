@@ -1,0 +1,72 @@
+import 'package:firebase_back_end/utils/constant_file.dart';
+import 'package:flutter/material.dart';
+
+import '../utils/color_file.dart';
+
+class CustomText extends StatelessWidget {
+  final String text;
+  final double? fontSize;
+  final Color? fontColor;
+  final String? fontFamily;
+  final TextOverflow? overflow;
+  final TextDecoration? decorationText;
+  final TextAlign? textAlign;
+  final double? lineSpacing;
+  final int? maxLine;
+  final Gradient? gradient;
+
+  const CustomText(
+    this.text,
+    this.fontSize,
+    this.fontColor,
+    this.fontFamily, {
+    this.decorationText,
+    this.textAlign,
+    this.lineSpacing,
+    this.maxLine,
+    this.gradient,
+    this.overflow,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (gradient != null) {
+      return ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (bounds) => gradient!.createShader(
+          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+        ),
+        child: Text(
+          overflow: overflow,
+          text,
+          textAlign: textAlign ?? TextAlign.start,
+          maxLines: maxLine,
+          style: TextStyle(
+            fontSize: fontSize ?? ConstantsFile.regularFontSize,
+            color: fontColor ?? ColorFile.whiteColor,
+            decorationColor: fontColor,
+            fontFamily: fontFamily ?? ConstantsFile.regularFontFamily,
+            decoration: decorationText ?? TextDecoration.none,
+            height: lineSpacing ?? 1,
+          ),
+        ),
+      );
+    } else {
+      return Text(
+        overflow: overflow,
+        text,
+        textAlign: textAlign ?? TextAlign.start,
+        maxLines: maxLine,
+        style: TextStyle(
+          fontSize: fontSize ?? ConstantsFile.regularFontSize,
+          color: fontColor ?? ColorFile.whiteColor,
+          decorationColor: fontColor,
+          fontFamily: fontFamily ?? ConstantsFile.regularFontFamily,
+          decoration: decorationText ?? TextDecoration.none,
+          height: lineSpacing ?? 1,
+        ),
+      );
+    }
+  }
+}
