@@ -1,0 +1,269 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:firebase_back_end/services/request_response_param.dart';
+import 'package:firebase_back_end/utils/common.dart';
+
+import "package:http/http.dart" as http;
+import 'package:crypto/crypto.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../enum/cloudinary_upload_type.dart';
+import 'base_url.dart';
+
+class CloudinaryService {
+  CloudinaryService();
+
+  Future<String?> fetchCloudinaryImage(
+      {required String fileName, required Uint8List image, required CloudinaryUploadType uploadType}) async {
+    try {
+      List<Map<String, dynamic>> filesToUpload = [
+        {
+          RequestResponseParam.fileName: _cleanFileName(fileName),
+          RequestResponseParam.fileBytes: image,
+        }
+      ];
+
+      List<Map<String, String>> uploadedLinks = await _uploadToCloudinary(filesToUpload, uploadType.value);
+
+      if (uploadedLinks.isNotEmpty) {
+        String imageUrl = uploadedLinks.first[RequestResponseParam.url] ?? "";
+        Common().printLog("fetchCloudinaryImage", "Uploaded File URL: $imageUrl");
+        return imageUrl;
+      } else {
+        Common().printLog("fetchCloudinaryImage", "Upload failed.");
+        return null;
+      }
+    } catch (e) {
+      Common().printLog("fetchCloudinaryImage", "An error occurred: $e");
+      return null;
+    }
+  }
+  Future<List<Map<String, String>>> _uploadToCloudinary(List<Map<String, dynamic>>? selectedFiles, String uploadType) async {
+    List<Map<String, String>> uploadedFilesData = [];
+
+    if (selectedFiles == null || selectedFiles.isEmpty) {
+      Common().printLog("uploadToCloudinary", "No file selected!");
+      return uploadedFilesData;
+    }
+
+    var uri = Uri.parse(BaseUrl.cloudinaryBaseUrl + BaseUrl.cloudinaryUploadUrl);
+
+    String directory;
+    if (uploadType == RequestResponseParam.userImageUrl) {
+      directory = RequestResponseParam.userImageUrl;
+    } else if (uploadType == RequestResponseParam.userPosts) {
+      directory = RequestResponseParam.userPosts;
+    } else {
+      Common().printLog("uploadToCloudinary", "Invalid upload type specified.");
+      return uploadedFilesData;
+    }
+
+    for (var file in selectedFiles) {
+      try {
+        Uint8List? fileBytes = file[RequestResponseParam.fileBytes] as Uint8List?;
+        String? fileName = file[RequestResponseParam.fileName] as String?;
+
+        if (fileBytes == null || fileName == null) {
+          Common().printLog("uploadToCloudinary", "Invalid file data, skipping...");
+          continue;
+        }
+
+        var request = http.MultipartRequest("POST", uri)
+          ..fields[RequestResponseParam.uploadPreset] = BaseUrl.uploadPreset
+          ..fields[RequestResponseParam.apiKey] = BaseUrl.apiKey
+          ..fields[RequestResponseParam.publicId] = fileName
+          ..fields[RequestResponseParam.assetFolder] = directory
+          ..files.add(http.MultipartFile.fromBytes(
+            RequestResponseParam.file,
+            fileBytes,
+            filename: fileName,
+          ));
+
+        var response = await request.send();
+        var responseBody = await response.stream.bytesToString();
+
+        if (response.statusCode == 200) {
+          var jsonResponse = jsonDecode(responseBody);
+          Common().printLog("uploadToCloudinary", "Upload successful: ${jsonResponse.toString()}");
+          Map<String, String> requiredData = {
+            RequestResponseParam.fileName: fileName,
+            RequestResponseParam.url: jsonResponse[RequestResponseParam.secureUrl], // Get file URL
+            RequestResponseParam.publicId: jsonResponse[RequestResponseParam.publicId], // File ID
+          };
+
+          Common().printLog("uploadToCloudinary", "Upload successful: ${requiredData[RequestResponseParam.url]}");
+          uploadedFilesData.add(requiredData);
+        } else {
+          Common().printLog(
+              "uploadToCloudinary", "Upload failed for $fileName. Status: ${response.statusCode}, Response: $responseBody");
+        }
+      } catch (e) {
+        Common().printLog("uploadToCloudinary", "Upload error: $e");
+      }
+    }
+
+    return uploadedFilesData;
+  }
+
+  Future<bool> deleteFromCloudinary(
+    String publicId,
+  ) async {
+    try {
+      int timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      String toSign = '${RequestResponseParam.publicId}=$publicId&${RequestResponseParam.timestamp}=$timestamp';
+      var signature = sha1.convert(utf8.encode(toSign + BaseUrl.apiSecret)).toString();
+      var url = BaseUrl.cloudinaryBaseUrl + BaseUrl.cloudinaryDeleteUrl;
+      var uri = Uri.parse(url);
+
+      var response = await http.post(
+        uri,
+        body: {
+          RequestResponseParam.publicId: publicId,
+          RequestResponseParam.timestamp: timestamp.toString(),
+          RequestResponseParam.apiKey: BaseUrl.apiKey,
+          RequestResponseParam.signature: signature,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        var responseBody = jsonDecode(response.body);
+        if (responseBody['result'] == 'ok') {
+          Common().printLog("deleteFromCloudinary", "File deleted successfully.");
+          return true;
+        }
+      }
+      Common().printLog("deleteFromCloudinary", "Failed to delete file: ${response.body}");
+      return false;
+    } catch (e) {
+      Common().printLog("deleteFromCloudinary", "Error deleting file: $e");
+      return false;
+    }
+  }
+
+  Future<bool> downloadFileFromCloudinary(String url, String fileName) async {
+    try {
+      var status = await Permission.storage.request();
+      var manageStatus = await Permission.manageExternalStorage.request();
+
+      if (status != PermissionStatus.granted || manageStatus != PermissionStatus.granted) {
+        Common().printLog("downloadFileFromCloudinary", "Storage permissions not granted.");
+        await openAppSettings();
+        return false;
+      }
+
+      Directory? downloadsDir = await getDownloadsDirectory();
+      if (downloadsDir == null) {
+        Common().printLog("downloadFileFromCloudinary", "Failed to access storage");
+        return false;
+      }
+
+      String filePath = '${downloadsDir.path}/$fileName';
+      var response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        File file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+        Common().printLog("downloadFileFromCloudinary", "File downloaded successfully! Saved at: $filePath");
+        return true;
+      } else {
+        Common().printLog("downloadFileFromCloudinary", "Failed to download file. Status code: ${response.statusCode}");
+        return false;
+      }
+    } catch (e) {
+      Common().printLog("downloadFileFromCloudinary", "Error downloading file: $e");
+      return false;
+    }
+  }
+
+
+
+  String _cleanFileName(String fileName) {
+    String originalFileName = fileName.trim();
+    String cleanName = originalFileName.replaceAll(RegExp(r'\.[^.]+$'), '');
+    return cleanName;
+  }
+}
+
+enum CloudinaryUploadType {
+  userImageUrl,
+  userPosts,
+}
+
+extension CloudinaryUploadTypeExtension on CloudinaryUploadType {
+  String get value {
+    switch (this) {
+      case CloudinaryUploadType.userImageUrl:
+        return RequestResponseParam.userImageUrl;
+      case CloudinaryUploadType.userPosts:
+        return RequestResponseParam.userPosts;
+    }
+  }
+}
+
+class RequestResponseParam {
+  static String countryName = "country";
+
+  static String countryCodeKey = "IN";
+  static String currentPassword = "CURRENT_PASSWORD";
+  static String confirmPassword = "CONFIRM_PASSWORD";
+  static String newPassword = "NEW_PASSWORD";
+  static String cloudinaryCloudNameKey = "CLOUDINARY_CLOUD_NAME";
+  static String cloudinaryApiKey = "CLOUDINARY_API_KEY";
+  static String cloudinaryApiSecretKey = "CLOUDINARY_API_SECRET";
+  static String cloudinaryUploadPresetKey = "CLOUDINARY_UPLOAD_PRESET";
+
+  static String email = "email";
+  static String password = "password";
+  static String tableName = "users";
+  static String userName = "user_name";
+  static String userId = "user_id";
+  static String likeId = "like_id";
+  static String commentId = "comment_id";
+  static String age = "age";
+  static String gender = "gender";
+  static String address = "address";
+  static String city = "city";
+  static String state = "state";
+  static String pinCode = "pin_code";
+  static String profilePic = "profile_pic";
+  static String mobileNumber = "mobile_number";
+
+  static String fileName = "file_name";
+  static String fileBytes = "file_bytes";
+  static String filePath = "filePath";
+
+  static String name = "name";
+  static String id = "id";
+  static String extension = "extension";
+  static String size = "size";
+  static String url = "url";
+  static String createdAt = "created_at";
+  static String secureUrl = "secure_url";
+  static String bytes = "bytes";
+  static String publicId = "public_id";
+  static String file = "file";
+  static String uploadPreset = "upload_preset";
+  static String timestamp = "timestamp";
+  static String apiKey = "api_key";
+  static String signature = "signature";
+  static String postId = "post_id";
+
+  static String description = "description";
+  static String image = "image";
+  static String metadata = "metadata";
+  static String isLiked = "is_liked";
+  static String dateTime = "date_time";
+  static String content = "content";
+  static String likes = "likes";
+  static String comments = "comments";
+  static String posts = "posts";
+  static String userImageUrl = "user_image_url";
+  static String userPosts = "user_posts";
+static String postCategory = "post_category";
+
+
+  static String assetFolder = "asset_folder";
+}
