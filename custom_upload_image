@@ -1,0 +1,229 @@
+class CustomUploadImageWidget extends StatelessWidget {
+  CustomUploadImageWidget({super.key, required this.isLoading, required this.onImageSelected, required this.controller});
+
+  final TextEditingController controller;
+  final Rx<Uint8List?> imageBytes = Rx<Uint8List?>(null);
+  final RxBool isLoading;
+  final Function(Uint8List?) onImageSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DottedBorderContainer(
+        child: Container(
+      height: Get.height / 4,
+      width: Get.width,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: ColorFile.thinGreyColor,
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(10.r), bottomLeft: Radius.circular(10.r)),
+      ),
+      child: Obx(
+        () => Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+                child: GestureDetector(
+                    onTap: () => showImageSourceDialog(),
+                    child: isLoading.value
+                        ? CustomLoadingIndicator()
+                        : imageBytes.value != null && imageBytes.value!.isNotEmpty
+                            ? CustomImage(imageBytes.value, Get.width, Get.height)
+                            : _placeHolder())),
+            if (imageBytes.value != null && imageBytes.value!.isNotEmpty) buttonRow(),
+            Common().verticalSpace(10.h)
+          ],
+        ),
+      ),
+    ));
+  }
+
+  Widget buttonRow() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 5.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _textButton(StringFile.delete, () => removeImage()),
+          Common().horizontalSpace(20.w),
+          _textButton(StringFile.change, () => showImageSourceDialog()),
+        ],
+      ),
+    );
+  }
+
+  Widget _textButton(String text, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+          padding: EdgeInsets.all(5.h),
+          child: CustomText(text, ConstantsFile.smallFontSize, ColorFile.themeColor, ConstantsFile.mediumFontFamily,
+              decorationText: TextDecoration.underline)),
+    );
+  }
+
+  Widget _placeHolder() {
+    return Container(
+        color: Colors.transparent,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [CustomImage(AppIcons.icAddOutlined, 40.w, 40.w, color: ColorFile.greyIconColor)],
+        ));
+  }
+
+  Future<void> pickImage({bool isCamera = false}) async {
+    _setLoading(true);
+
+    try {
+      List<Map<String, dynamic>>? selectedFile =
+          await Common().handleMediaSelection(isCamera: isCamera, allowMultiple: false, fileType: FileType.image);
+
+      if (selectedFile != null && selectedFile.isNotEmpty) {
+        Uint8List? fileBytes = selectedFile.first[RequestResponseParam.fileBytes];
+
+        if (fileBytes != null) {
+          imageBytes.value = fileBytes;
+          controller.text = selectedFile.first[RequestResponseParam.fileName];
+          onImageSelected(fileBytes);
+        }
+      }
+    } catch (e) {
+      Common().printLog("CustomUploadImageWidget in Error picking image: ==> ", "$e");
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> showImageSourceDialog() async {
+    Common().openDialogFromTop(
+        child: ImageSourceCard(
+            isLoading: isLoading,
+            onCameraSelected: () {
+              pickImage(isCamera: true);
+              Get.back();
+            },
+            onGallerySelected: () {
+              pickImage(isCamera: false);
+              Get.back();
+            }));
+  }
+
+  void _setLoading(bool value) {
+    isLoading.value = value;
+  }
+
+  void removeImage() {
+    imageBytes.value = null;
+    onImageSelected(null);
+  }
+}
+
+class ImageSourceCard extends StatelessWidget {
+  final VoidCallback onCameraSelected;
+  final VoidCallback onGallerySelected;
+  final RxBool isLoading;
+
+  const ImageSourceCard({
+    super.key,
+    required this.onCameraSelected,
+    required this.onGallerySelected,
+    required this.isLoading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Obx(
+        () => Card(
+          margin: EdgeInsets.symmetric(horizontal: 22.w),
+          child: Container(
+            width: Get.width,
+            height: Get.height / 5.2,
+            margin: EdgeInsets.only(top: 8.h),
+            padding: EdgeInsets.all(12.r),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CustomText(
+                  StringFile.selectImageFrom,
+                  ConstantsFile.mediumFontSize,
+                  ColorFile.themeColor,
+                  ConstantsFile.boldFontFamily,
+                ),
+                Common().verticalSpace(20.h),
+                if (isLoading.value)
+                  const CircularProgressIndicator()
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildImageOption(
+                        icon: AppIcons.icCameraGrey,
+                        label: StringFile.camera,
+                        onTap: onCameraSelected,
+                        isDisabled: isLoading.value,
+                      ),
+                      _buildImageOption(
+                        icon: AppIcons.icGallery,
+                        label: StringFile.gallery,
+                        onTap: onGallerySelected,
+                        isDisabled: isLoading.value,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageOption({
+    required String icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDisabled,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        child: Column(
+          children: [
+            CustomImage(icon, 40, 40, color: isDisabled ? Colors.grey : null),
+            Common().verticalSpace(10),
+            CustomText(
+              label,
+              ConstantsFile.smallCaptionFontSize,
+              isDisabled ? Colors.grey : ColorFile.themeColor,
+              ConstantsFile.semiBoldFontFamily,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DottedBorderContainer extends StatelessWidget {
+  const DottedBorderContainer({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DottedBorder(
+      dashPattern: const [4, 4],
+      color: ColorFile.themeColor,
+      strokeCap: StrokeCap.round,
+      borderType: BorderType.RRect,
+      strokeWidth: 0.7,
+      borderPadding: EdgeInsets.all(2.sp),
+      radius: Radius.circular(8.r),
+      padding: EdgeInsets.all(10.sp),
+      child: child,
+    );
+  }
+}
