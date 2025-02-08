@@ -1,0 +1,100 @@
+class CustomDropDown<T> extends StatelessWidget {
+  const CustomDropDown({
+    super.key,
+    required this.dropdownKey,
+    required this.selectedValue,
+    required this.items,
+    this.labelWidget,
+    required this.buildDropdownMenu,
+    this.padding,
+    required this.selectedItem,
+    this.menuWidth,
+  });
+
+  final GlobalKey dropdownKey;
+  final Widget Function(Rx<T>) selectedItem;
+  final Rx<T> selectedValue;
+  final List<T> items;
+  final Widget? labelWidget;
+  final Widget Function(List<T>) buildDropdownMenu;
+  final EdgeInsetsGeometry? padding;
+
+  final double? menuWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        labelWidget != null
+            ? Padding(padding: padding ?? EdgeInsets.only(right: 16.w, left: 16.w, top: 8.h), child: labelWidget)
+            : const SizedBox.shrink(),
+        InkWell(
+          key: dropdownKey,
+          onTap: () {
+            try {
+              showCustomMenu(
+                globalKey: dropdownKey,
+                context: context,
+                width: menuWidth,
+                child: buildDropdownMenu(items),
+              );
+            } catch (e) {
+              Common().printLog("CustomDropDown", e.toString());
+            }
+          },
+          child: Obx(
+            () => Container(
+              padding: padding ?? EdgeInsets.only(right: 16.w, left: 16.w, top: 8.h),
+              child: selectedItem(selectedValue),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void showCustomMenu(
+      {required GlobalKey globalKey,
+      required BuildContext context,
+      required Widget child,
+      double? width,
+      double? height,
+      bool beginFromTop = false}) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox popupButton = globalKey.currentContext!.findRenderObject() as RenderBox;
+    width ??= globalKey.currentContext!.size!.width;
+    height ??= Get.height;
+    final Offset offset = popupButton.localToGlobal(Offset.zero, ancestor: overlay);
+
+    showMenu(
+        context: context,
+        color: ColorFile.whiteColor,
+        surfaceTintColor: ColorFile.whiteColor,
+        position: RelativeRect.fromLTRB(
+          offset.dx,
+          (beginFromTop) ? offset.dy - height : offset.dy + popupButton.size.height,
+          offset.dx + 0,
+          offset.dy + popupButton.size.height,
+        ),
+        constraints: BoxConstraints(
+          minWidth: width,
+          maxWidth: width,
+          maxHeight: height,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(
+            Radius.circular(8.r),
+          ),
+        ),
+        items: [
+          PopupMenuItem(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            child: child,
+          ),
+        ]);
+  }
+}
