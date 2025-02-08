@@ -1,0 +1,64 @@
+class RequestResponseParam {
+  static String countryName = "country";
+
+  static String countryCodeKey = "IN";
+  static String currentPassword = "CURRENT_PASSWORD";
+  static String confirmPassword = "CONFIRM_PASSWORD";
+  static String newPassword = "NEW_PASSWORD";
+  static String cloudinaryCloudNameKey = "CLOUDINARY_CLOUD_NAME";
+  static String cloudinaryApiKey = "CLOUDINARY_API_KEY";
+  static String cloudinaryApiSecretKey = "CLOUDINARY_API_SECRET";
+  static String cloudinaryUploadPresetKey = "CLOUDINARY_UPLOAD_PRESET";
+
+  static String email = "email";
+  static String password = "password";
+  static String tableName = "users";
+  static String userName = "user_name";
+  static String userId = "user_id";
+  static String likeId = "like_id";
+  static String commentId = "comment_id";
+  static String age = "age";
+  static String gender = "gender";
+  static String address = "address";
+  static String city = "city";
+  static String state = "state";
+  static String pinCode = "pin_code";
+  static String profilePic = "profile_pic";
+  static String mobileNumber = "mobile_number";
+
+  static String fileName = "file_name";
+  static String fileBytes = "file_bytes";
+  static String filePath = "filePath";
+
+  static String name = "name";
+  static String id = "id";
+  static String extension = "extension";
+  static String size = "size";
+  static String url = "url";
+  static String createdAt = "created_at";
+  static String secureUrl = "secure_url";
+  static String bytes = "bytes";
+  static String publicId = "public_id";
+  static String file = "file";
+  static String uploadPreset = "upload_preset";
+  static String timestamp = "timestamp";
+  static String apiKey = "api_key";
+  static String signature = "signature";
+  static String postId = "post_id";
+
+  static String description = "description";
+  static String image = "image";
+  static String metadata = "metadata";
+  static String isLiked = "is_liked";
+  static String dateTime = "date_time";
+  static String content = "content";
+  static String likes = "likes";
+  static String comments = "comments";
+  static String posts = "posts";
+  static String userImageUrl = "user_image_url";
+  static String userPosts = "user_posts";
+static String postCategory = "post_category";
+
+
+  static String assetFolder = "asset_folder";
+}
