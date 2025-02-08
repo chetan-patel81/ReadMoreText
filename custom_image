@@ -1,0 +1,100 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+class CustomImage extends StatelessWidget {
+  final dynamic imgUrl;
+  final double widthSize;
+  final double heightSize;
+  final String? emptyImgUrl;
+  final Color? color;
+  final BoxFit? boxFit;
+
+  const CustomImage(this.imgUrl, this.widthSize, this.heightSize, {this.emptyImgUrl, this.color, super.key, this.boxFit});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imgUrl is Uint8List) {
+      return _buildMemoryImage();
+    } else if (imgUrl is String && imgUrl.isNotEmpty) {
+      if (imgUrl.endsWith(".svg")) {
+        return _buildSvgImage();
+      } else {
+        return _buildRasterImage();
+      }
+    } else {
+      return _buildEmptyImage();
+    }
+  }
+
+  Widget _buildMemoryImage() {
+    return Image.memory(
+      imgUrl as Uint8List,
+      width: widthSize,
+      height: heightSize,
+      color: color,
+      fit: boxFit ?? BoxFit.contain,
+    );
+  }
+
+  Widget _buildSvgImage() {
+    return imgUrl.startsWith('assets/images/')
+        ? SvgPicture.asset(
+            imgUrl,
+            width: widthSize,
+            height: heightSize,
+            colorFilter: _getColorFilter(),
+            fit: boxFit ?? BoxFit.contain,
+          )
+        : SvgPicture.network(
+            imgUrl,
+            width: widthSize,
+            height: heightSize,
+            colorFilter: _getColorFilter(),
+            fit: boxFit ?? BoxFit.contain,
+          );
+  }
+
+  Widget _buildRasterImage() {
+    return imgUrl.startsWith('assets/images/')
+        ? Image.asset(
+            imgUrl,
+            width: widthSize,
+            height: heightSize,
+            color: color,
+            fit: boxFit ?? BoxFit.contain,
+          )
+        : Image.network(
+            imgUrl,
+            width: widthSize,
+            height: heightSize,
+            color: color,
+            fit: boxFit ?? BoxFit.contain,
+          );
+  }
+
+  Widget _buildEmptyImage() {
+    if (emptyImgUrl != null) {
+      return emptyImgUrl!.contains(".svg")
+          ? SvgPicture.asset(
+              emptyImgUrl!,
+              width: widthSize,
+              height: heightSize,
+              fit: boxFit ?? BoxFit.contain,
+            )
+          : Image.asset(
+              emptyImgUrl!,
+              width: widthSize,
+              height: heightSize,
+              fit: boxFit ?? BoxFit.contain,
+            );
+    } else {
+      return const SizedBox.shrink();
+    }
+  }
+
+  ColorFilter? _getColorFilter() {
+    return color != null ? ColorFilter.mode(color!, BlendMode.srcIn) : null;
+  }
+}
