@@ -1,0 +1,63 @@
+class CustomAppBar extends StatelessWidget {
+  final void Function()? onPressed;
+  final String? icon;
+  final String title;
+  final Widget? actionButton;
+  final bool centerTitle;
+  final Color? appBarColor;
+  final Color? titleColor;
+
+  const CustomAppBar({
+    super.key,
+    this.icon,
+    this.onPressed,
+    required this.title,
+    this.actionButton,
+    this.centerTitle = false,
+    this.titleColor,
+    this.appBarColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: appBarColor ?? ColorFile.transparentColor,
+      padding: EdgeInsets.only(left: 20.w, right: 20.w, top: 5.h, bottom: 5.h),
+      height: kToolbarHeight + 10.h, // Adjust height as needed
+      child: SafeArea(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (icon != null && onPressed != null)
+              Align(alignment: Alignment.centerLeft, child: GestureDetector(onTap: onPressed, child: _iconWidget(icon!))),
+            Align(
+                alignment: centerTitle ? Alignment.center : Alignment.centerLeft,
+                child: Padding(
+                    padding: EdgeInsets.only(left: icon != null ? 40.w : 0.w, right: actionButton != null ? 40.w : 0.w),
+                    child: CustomText(
+                        title,
+                        ConstantsFile.regularFontSize,
+                        titleColor ?? (appBarColor == null ? ColorFile.blackColor : ColorFile.whiteColor),
+                        ConstantsFile.semiBoldFontFamily,
+                        textAlign: centerTitle ? TextAlign.center : TextAlign.start))),
+            if (actionButton != null) Align(alignment: Alignment.centerRight, child: actionButton!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _iconWidget(icon) {
+    double iconSize = 24.w;
+
+    return Container(
+      height: iconSize,
+      width: iconSize,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: ColorFile.transparentColor),
+      child: Center(
+          child: CustomImage(icon, iconSize - 4, iconSize - 4,
+              color: appBarColor == null ? ColorFile.blackColor : ColorFile.whiteColor)),
+    );
+  }
+}
